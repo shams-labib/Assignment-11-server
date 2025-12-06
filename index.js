@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
-
+const crypto = require("crypto");
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -18,6 +18,20 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
+
+function generateTrackingId() {
+  const prefix = "PS"; // optional prefix (Mal Shift)
+
+  // Date: YYYYMMDD
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+
+  // Random 6-character hex (3 bytes)
+  const random = crypto.randomBytes(3).toString("hex").toUpperCase();
+
+  return `${prefix}-${date}-${random}`;
+}
 
 async function run() {
   try {
@@ -123,8 +137,11 @@ async function run() {
 
     app.post("/services", async (req, res) => {
       const servicesInfo = req.body;
+      const trackingId = generateTrackingId();
+      console.log(trackingId);
+      servicesInfo.trackingId = trackingId;
       const result = await servicesCollection.insertOne(servicesInfo);
-      res.send("Added");
+      res.send(result);
     });
 
     // Get services with optional search, category, and budget filter
@@ -218,6 +235,38 @@ async function run() {
       };
       const result = await bookingsCollection.updateOne(query, updateDoc);
       res.send(result);
+    });
+
+    // payment
+
+    app.post("/payment-checkout-session", async (req, res) => {
+      const paymentInfo = req.body;
+      const amount = parseInt(paymentInfo.cost) * 100;
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            // Provide the exact Price ID (for example, price_1234) of the product you want to sell
+            price_data: {
+              currency: "usd",
+              unit_amount: amount,
+              product_data: {
+                name: `Please pay for ${paymentInfo.parcelName}`,
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        mode: "payment",
+        metadata: {
+          parcelId: paymentInfo.parcelId,
+          trackingId: paymentInfo.trackingId,
+        },
+        customer_email: paymentInfo.senderEmail,
+        success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-cancelled`,
+      });
+
+      res.send({ url: session.url });
     });
 
     console.log("API endpoints are ready");

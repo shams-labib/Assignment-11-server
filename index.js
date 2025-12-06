@@ -27,6 +27,7 @@ async function run() {
 
     const db = client.db("assignment-11");
     const usersCollection = db.collection("users");
+    const servicesCollection = db.collection("services");
 
     // Create user
     // Create user
@@ -69,28 +70,36 @@ async function run() {
     app.patch("/users/:id", async (req, res) => {
       try {
         const { id } = req.params;
-        const { role } = req.body;
+        const updateData = req.body;
 
-        if (!role) {
-          return res.status(400).json({ message: "Role is required" });
-        }
+        const query = { _id: new ObjectId(id) };
+        const updateDoc = { $set: updateData };
 
-        const result = await usersCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: { role } }
-        );
+        const result = await usersCollection.updateOne(query, updateDoc);
 
         if (result.matchedCount === 0) {
           return res.status(404).json({ message: "User not found" });
         }
 
-        res.json({ message: "Role updated successfully" });
+        res.json({ message: "User updated successfully" });
       } catch (error) {
         res.status(500).json({ error: error.message });
       }
     });
 
-    // Delete user
+    app.patch("/users/:id/status", async (req, res) => {
+      const id = req.params.id;
+      const statusInfo = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          status: statusInfo.status,
+        },
+      };
+      const result = await usersCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+
     // Delete user
     app.delete("/users/:id", async (req, res) => {
       try {
@@ -107,6 +116,40 @@ async function run() {
       } catch (error) {
         res.status(500).json({ error: error.message });
       }
+    });
+
+    // Services collections Api's
+
+    app.post("/services", async (req, res) => {
+      const servicesInfo = req.body;
+      const result = await servicesCollection.insertOne(servicesInfo);
+      res.send("Added");
+    });
+
+    app.get("/services", async (req, res) => {
+      const cursor = await servicesCollection
+        .find()
+        .sort({ createdAt: -1 })
+        .toArray();
+      res.send(cursor);
+    });
+
+    app.patch("/services/:id", async (req, res) => {
+      const id = req.params.id;
+      const updateData = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updateData,
+      };
+      const result = await servicesCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+
+    app.delete("/services/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await servicesCollection.deleteOne(query);
+      res.send(result);
     });
 
     console.log("API endpoints are ready");

@@ -28,6 +28,7 @@ async function run() {
     const db = client.db("assignment-11");
     const usersCollection = db.collection("users");
     const servicesCollection = db.collection("services");
+    const bookingsCollection = db.collection("bookings");
 
     // Create user
     // Create user
@@ -183,6 +184,39 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await servicesCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // Bookings collection
+    app.post("/bookings", async (req, res) => {
+      const bookings = req.body;
+      const result = await bookingsCollection.insertOne(bookings);
+      res.send(result);
+    });
+
+    app.get("/bookings", async (req, res) => {
+      const result = await bookingsCollection
+        .find()
+        .sort({ date: -1 })
+        .toArray();
+      res.send(result);
+    });
+
+    app.delete("/bookings/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await bookingsCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    app.patch("/bookings/:id", async (req, res) => {
+      const id = req.params.id;
+      const updateData = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updateData,
+      };
+      const result = await bookingsCollection.updateOne(query, updateDoc);
       res.send(result);
     });
 

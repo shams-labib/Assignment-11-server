@@ -126,12 +126,46 @@ async function run() {
       res.send("Added");
     });
 
+    // Get services with optional search, category, and budget filter
     app.get("/services", async (req, res) => {
-      const cursor = await servicesCollection
-        .find()
-        .sort({ createdAt: -1 })
-        .toArray();
-      res.send(cursor);
+      try {
+        const { search, category, minBudget, maxBudget } = req.query;
+
+        const query = {};
+
+        // Search by serviceName
+        if (search) {
+          query.serviceName = { $regex: search, $options: "i" }; // case-insensitive
+        }
+
+        // Filter by category
+        if (category && category !== "all") {
+          query.category = category;
+        }
+
+        // Filter by cost/budget
+        if (minBudget || maxBudget) {
+          query.cost = {};
+          if (minBudget) query.cost.$gte = Number(minBudget);
+          if (maxBudget) query.cost.$lte = Number(maxBudget);
+        }
+
+        const services = await servicesCollection
+          .find(query)
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.send(services);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    app.get("/services/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await servicesCollection.findOne(query);
+      res.send(result);
     });
 
     app.patch("/services/:id", async (req, res) => {

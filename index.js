@@ -281,7 +281,7 @@ async function run() {
 
       const decoratorInfo = {
         decoratorName: riderName,
-        // decoratorEmail: riderEmail,
+        decoratorEmail: riderEmail,
         createdAt: new Date(),
         trackingId: trackingId,
         image: image,

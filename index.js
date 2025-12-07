@@ -71,11 +71,23 @@ async function run() {
       }
     });
 
+    // Admin, users, rider role check
+    app.get("/users/:email/role", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+      res.send({ role: user?.role || "user" });
+    });
+
     // Get all users (with optional role filter)
     app.get("/users", async (req, res) => {
       try {
-        const role = req.query.role;
-        const filter = role ? { role } : {};
+        const { role, status } = req.query;
+
+        const filter = {};
+        if (role) filter.role = role;
+        if (status) filter.status = status;
+
         const users = await usersCollection.find(filter).toArray();
         res.json(users);
       } catch (error) {
@@ -214,11 +226,29 @@ async function run() {
     });
 
     app.get("/bookings", async (req, res) => {
-      const result = await bookingsCollection
-        .find()
-        .sort({ date: -1 })
-        .toArray();
-      res.send(result);
+      try {
+        const { email, decoratorEmail } = req.query;
+
+        const query = {};
+
+        // Only filter if decoratorEmail exists
+
+        if (email) {
+          query.userEmail = email;
+        }
+        if (decoratorEmail) {
+          query.decoratorEmail = decoratorEmail;
+        }
+
+        const result = await bookingsCollection
+          .find(query)
+          .sort({ date: -1 })
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
     });
 
     app.get("/bookings/role", async (req, res) => {
@@ -261,46 +291,50 @@ async function run() {
 
     app.patch("/bookings/:id/role", async (req, res) => {
       const id = req.params.id;
-      const {
-        deliveryStatus,
-        riderName,
-        riderEmail,
-        trackingId,
-        image,
-        cost,
-        location,
-        category,
-      } = req.body;
+      const { decoratorName, decoratorEmail, decoratorStatus } = req.body;
       const query = { _id: new ObjectId(id) };
       const updateDoc = {
         $set: {
-          deliveryStatus: "Materials Prepared",
+          deliveryStatus: "materials-prepared",
+          decoratorName: decoratorName,
+          decoratorEmail: decoratorEmail,
+          decoratorStatus: decoratorStatus,
         },
       };
       const result = await bookingsCollection.updateOne(query, updateDoc);
 
-      const decoratorInfo = {
-        decoratorName: riderName,
-        decoratorEmail: riderEmail,
-        createdAt: new Date(),
-        trackingId: trackingId,
-        image: image,
-        cost: cost,
-        location: location,
-        category: category,
+      res.send(result);
+    });
+
+    app.patch("/bookings/:id/status", async (req, res) => {
+      const id = req.params.id;
+      const statusInfo = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          deliveryStatus: statusInfo.deliveryStatus,
+        },
       };
 
-      const decoratorResult = await decoratorsCollection.insertOne(
-        decoratorInfo
-      );
-
-      res.send(decoratorResult);
+      const result = await bookingsCollection.updateOne(query, updateDoc);
+      res.send(result);
     });
 
     // decorator
-    app.get("/decorator", async (req, res) => {
-      const cursor = await decoratorsCollection.find().toArray();
-      res.send(cursor);
+    app.get("/decorators", async (req, res) => {
+      try {
+        const { decoratorEmail } = req.query; // extract email string
+        const query = {};
+
+        if (decoratorEmail) {
+          query.decoratorEmail = decoratorEmail;
+        }
+
+        const cursor = await decoratorsCollection.find(query).toArray();
+        res.send(cursor);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
     });
 
     // payment
@@ -396,7 +430,12 @@ async function run() {
     });
 
     app.get("/payments", async (req, res) => {
-      const result = await paymentsCollection.find().toArray();
+      const email = req.query.email;
+      const query = {};
+      if (email) {
+        query.customerEmail = email;
+      }
+      const result = await paymentsCollection.find(query).toArray();
       res.send(result);
     });
   } finally {

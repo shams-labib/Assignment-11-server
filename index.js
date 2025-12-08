@@ -45,6 +45,7 @@ async function run() {
     const bookingsCollection = db.collection("bookings");
     const paymentsCollection = db.collection("payments");
     const decoratorsCollection = db.collection("decorators");
+    const bannersCollection = db.collection("banner");
 
     // Create user
     app.post("/users", async (req, res) => {
@@ -448,6 +449,13 @@ async function run() {
       }
       const result = await paymentsCollection.find(query).toArray();
       res.send(result);
+    });
+
+    // Banner related api's
+
+    app.get("/banner", async (req, res) => {
+      const cursor = await bannersCollection.find().toArray();
+      res.send(cursor);
     });
   } finally {
     // Optional: don't close the client if server runs continuously

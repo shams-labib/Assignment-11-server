@@ -5,9 +5,28 @@ require("dotenv").config();
 const crypto = require("crypto");
 const app = express();
 const port = process.env.PORT || 3000;
+let jwt = require("jsonwebtoken");
 
 app.use(cors());
 app.use(express.json());
+function verifyToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).send({ message: "No token found" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).send({ message: "Invalid token" });
+    }
+
+    req.token_email = decoded.email;
+    next();
+  });
+}
 
 const uri = process.env.DB_URI;
 
@@ -234,18 +253,26 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/bookings", async (req, res) => {
+    app.get("/bookings", verifyToken, async (req, res) => {
       try {
         const { email, decoratorEmail, deliveryStatus } = req.query;
 
         const query = {};
 
         if (email) {
+          if (email !== req.token_email) {
+            return res.status(403).send({ message: "Unauthorized user" });
+          }
           query.userEmail = email;
         }
+
         if (decoratorEmail) {
+          if (decoratorEmail !== req.token_email) {
+            return res.status(403).send({ message: "Unauthorized decorator" });
+          }
           query.decoratorEmail = decoratorEmail;
         }
+
         if (deliveryStatus) {
           query.deliveryStatus = deliveryStatus;
         }
@@ -456,6 +483,18 @@ async function run() {
     app.get("/banner", async (req, res) => {
       const cursor = await bannersCollection.find().toArray();
       res.send(cursor);
+    });
+
+    // jwt token
+
+    app.post("/getToken", async (req, res) => {
+      const user = req.body;
+
+      const token = jwt.sign(user, process.env.JWT_SECRET, {
+        expiresIn: "7d",
+      });
+
+      res.send({ token });
     });
   } finally {
     // Optional: don't close the client if server runs continuously

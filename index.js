@@ -35,8 +35,8 @@ function generateTrackingId() {
 
 async function run() {
   try {
-    await client.connect();
-    await client.db("admin").command({ ping: 1 });
+    // await client.connect();
+    // await client.db("admin").command({ ping: 1 })
     console.log("Connected to MongoDB successfully!");
 
     const db = client.db("assignment-11");
@@ -46,7 +46,6 @@ async function run() {
     const paymentsCollection = db.collection("payments");
     const decoratorsCollection = db.collection("decorators");
 
-    // Create user
     // Create user
     app.post("/users", async (req, res) => {
       try {
@@ -58,7 +57,6 @@ async function run() {
           return res.status(400).json({ message: "User already exists" });
         }
 
-        // Add default status if role is decorator
         if (user.role === "decorator") {
           user.status = "pending"; // default status
         }
@@ -227,17 +225,18 @@ async function run() {
 
     app.get("/bookings", async (req, res) => {
       try {
-        const { email, decoratorEmail } = req.query;
+        const { email, decoratorEmail, deliveryStatus } = req.query;
 
         const query = {};
-
-        // Only filter if decoratorEmail exists
 
         if (email) {
           query.userEmail = email;
         }
         if (decoratorEmail) {
           query.decoratorEmail = decoratorEmail;
+        }
+        if (deliveryStatus) {
+          query.deliveryStatus = deliveryStatus;
         }
 
         const result = await bookingsCollection
@@ -299,6 +298,8 @@ async function run() {
           decoratorName: decoratorName,
           decoratorEmail: decoratorEmail,
           decoratorStatus: decoratorStatus,
+          assignedAt: new Date(),
+          ratings: 4.5,
         },
       };
       const result = await bookingsCollection.updateOne(query, updateDoc);

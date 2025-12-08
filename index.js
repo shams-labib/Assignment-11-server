@@ -52,18 +52,28 @@ async function run() {
         const user = req.body;
         const email = user.email;
 
-        const userExists = await usersCollection.findOne({ email });
-        if (userExists) {
-          return res.status(400).json({ message: "User already exists" });
+        // default role
+        user.role = user.role || "user";
+
+        // Check if user already exists
+        const existingUser = await usersCollection.findOne({ email });
+
+        if (existingUser) {
+          // Simply return the existing user (DO NOT block login)
+          return res
+            .status(200)
+            .json({ message: "Login success", user: existingUser });
         }
 
+        // Default decorator status
         if (user.role === "decorator") {
-          user.status = "pending"; // default status
+          user.status = "pending";
         }
 
         user.createdAt = new Date();
+
         const result = await usersCollection.insertOne(user);
-        res.status(201).json(result);
+        res.status(201).json({ message: "User created", user: result });
       } catch (error) {
         res.status(500).json({ error: error.message });
       }

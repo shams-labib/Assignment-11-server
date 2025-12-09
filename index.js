@@ -505,11 +505,15 @@ async function run() {
       return res.send({ success: false });
     });
 
-    app.get("/payments", async (req, res) => {
+    app.get("/payments", verifyToken, async (req, res) => {
       const email = req.query.email;
       const query = {};
       if (email) {
         query.customerEmail = email;
+        // verify Email
+        if (email !== req.token_email) {
+          res.status(403).send({ message: "Unauthorize access" });
+        }
       }
       const result = await paymentsCollection.find(query).toArray();
       res.send(result);

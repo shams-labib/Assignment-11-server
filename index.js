@@ -9,7 +9,7 @@ let jwt = require("jsonwebtoken");
 
 app.use(cors());
 app.use(express.json());
-function verifyToken(req, res, next) {
+const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -26,7 +26,7 @@ function verifyToken(req, res, next) {
     req.token_email = decoded.email;
     next();
   });
-}
+};
 
 const uri = process.env.DB_URI;
 
@@ -54,8 +54,8 @@ function generateTrackingId() {
 
 async function run() {
   try {
-    // await client.connect();
-    // await client.db("admin").command({ ping: 1 })
+    await client.connect();
+    await client.db("admin").command({ ping: 1 });
     console.log("Connected to MongoDB successfully!");
 
     const db = client.db("assignment-11");
@@ -253,40 +253,77 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/bookings", verifyToken, async (req, res) => {
+    app.get("/bookings", async (req, res) => {
       try {
-        const { email, decoratorEmail, deliveryStatus } = req.query;
+        const {
+          email,
+          deliveryStatus,
+          decoratorEmail,
+          page = 1,
+          limit = 10,
+        } = req.query;
 
         const query = {};
 
-        if (email) {
-          if (email !== req.token_email) {
-            return res.status(403).send({ message: "Unauthorized user" });
-          }
-          query.userEmail = email;
-        }
+        if (email) query.userEmail = email;
+        if (decoratorEmail) query.decoratorEmail = decoratorEmail;
+        if (deliveryStatus) query.deliveryStatus = deliveryStatus;
 
-        if (decoratorEmail) {
-          if (decoratorEmail !== req.token_email) {
-            return res.status(403).send({ message: "Unauthorized decorator" });
-          }
-          query.decoratorEmail = decoratorEmail;
-        }
+        const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        if (deliveryStatus) {
-          query.deliveryStatus = deliveryStatus;
-        }
-
+        const total = await bookingsCollection.countDocuments(query); // total matching bookings
         const result = await bookingsCollection
           .find(query)
-          .sort({ date: -1 })
+          .sort({ bookingsDate: -1 })
+          .skip(skip)
+          .limit(parseInt(limit))
           .toArray();
 
-        res.send(result);
+        res.send({
+          data: result,
+          total,
+          page: parseInt(page),
+          totalPages: Math.ceil(total / limit),
+        });
       } catch (error) {
         res.status(500).json({ error: error.message });
       }
     });
+
+    // app.get("/bookings", verifyToken, async (req, res) => {
+    //   try {
+    //     const { email, decoratorEmail, deliveryStatus } = req.query;
+
+    //     const query = {};
+
+    //     if (email) {
+    //       if (email !== req.token_email) {
+    //         return res.status(403).send({ message: "Unauthorized user" });
+    //       }
+    //       query.userEmail = email;
+    //     }
+
+    //     if (decoratorEmail) {
+    //       if (decoratorEmail !== req.token_email) {
+    //         return res.status(403).send({ message: "Unauthorized decorator" });
+    //       }
+    //       query.decoratorEmail = decoratorEmail;
+    //     }
+
+    //     if (deliveryStatus) {
+    //       query.deliveryStatus = deliveryStatus;
+    //     }
+
+    //     const result = await bookingsCollection
+    //       .find(query)
+    //       .sort({ bookingsDate: -1 })
+    //       .toArray();
+
+    //     res.send(result);
+    //   } catch (error) {
+    //     res.status(500).json({ error: error.message });
+    //   }
+    // });
 
     app.get("/bookings/role", async (req, res) => {
       try {
@@ -299,7 +336,7 @@ async function run() {
 
         const result = await bookingsCollection
           .find(filter)
-          .sort({ date: -1 })
+          .sort({ assignedAt: -1 })
           .toArray();
 
         res.send(result);

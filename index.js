@@ -66,6 +66,16 @@ async function run() {
     const decoratorsCollection = db.collection("decorators");
     const bannersCollection = db.collection("banner");
 
+    // verifyAdmin
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.token_email;
+      const user = await usersCollection.findOne({ email });
+      if (!user || user.role !== "admin") {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
+
     // Create user
     app.post("/users", async (req, res) => {
       try {
@@ -124,7 +134,7 @@ async function run() {
     });
 
     // Update user role
-    app.patch("/users/:id", async (req, res) => {
+    app.patch("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
       try {
         const { id } = req.params;
         const updateData = req.body;
@@ -177,7 +187,7 @@ async function run() {
 
     // Services collections Api's
 
-    app.post("/services", async (req, res) => {
+    app.post("/services", verifyToken, verifyAdmin, async (req, res) => {
       const servicesInfo = req.body;
       const result = await servicesCollection.insertOne(servicesInfo);
       res.send(result);
@@ -225,7 +235,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/services/:id", async (req, res) => {
+    app.patch("/services/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const updateData = req.body;
       const query = { _id: new ObjectId(id) };
@@ -253,7 +263,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/bookings", async (req, res) => {
+    app.get("/bookings", verifyToken, async (req, res) => {
       try {
         const {
           email,
@@ -265,8 +275,18 @@ async function run() {
 
         const query = {};
 
-        if (email) query.userEmail = email;
-        if (decoratorEmail) query.decoratorEmail = decoratorEmail;
+        if (email) {
+          if (email !== req.token_email) {
+            return res.status(403).send({ message: "Unauthorized user" });
+          }
+          query.userEmail = email;
+        }
+        if (decoratorEmail) {
+          if (decoratorEmail !== req.token_email) {
+            return res.status(403).send({ message: "Unauthorized decorator" });
+          }
+          query.decoratorEmail = decoratorEmail;
+        }
         if (deliveryStatus) query.deliveryStatus = deliveryStatus;
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -288,6 +308,11 @@ async function run() {
       } catch (error) {
         res.status(500).json({ error: error.message });
       }
+    });
+
+    app.get("/bookings/book", async (req, res) => {
+      const data = await bookingsCollection.find().toArray();
+      res.send(data);
     });
 
     // app.get("/bookings", verifyToken, async (req, res) => {
@@ -397,7 +422,7 @@ async function run() {
     });
 
     // decorator
-    app.get("/decorators", async (req, res) => {
+    app.get("/decorators", verifyToken, verifyAdmin, async (req, res) => {
       try {
         const { decoratorEmail } = req.query; // extract email string
         const query = {};

@@ -120,11 +120,12 @@ async function run() {
     // Get all users (with optional role filter)
     app.get("/users", async (req, res) => {
       try {
-        const { role, status } = req.query;
+        const { role, status, email } = req.query;
 
         const filter = {};
         if (role) filter.role = role;
         if (status) filter.status = status;
+        if (email) filter.email = email;
 
         const users = await usersCollection.find(filter).toArray();
         res.json(users);

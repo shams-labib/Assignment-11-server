@@ -54,9 +54,9 @@ function generateTrackingId() {
 
 async function run() {
   try {
-    await client.connect();
-    await client.db("admin").command({ ping: 1 });
-    console.log("Connected to MongoDB successfully!");
+    // await client.connect();
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Connected to MongoDB successfully!");
 
     const db = client.db("assignment-11");
     const usersCollection = db.collection("users");
